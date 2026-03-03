@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="ko" class="">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Tool Finder</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: { extend: {} }
+    };
+  </script>
+  <style>
+    body { background-color: #ffffff; }
+    .dark body { background-color: #0f172a; }
+    .google-shadow { box-shadow: 0 1px 6px rgba(32,33,36,0.28); }
+    .dark .google-shadow { box-shadow: 0 1px 6px rgba(0,0,0,0.5); }
+    .card-enter { opacity: 0; transform: translateY(12px); }
+    .card-enter-active { animation: cardEnter 0.35s ease-out forwards; }
+    @keyframes cardEnter { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    .tool-card { transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease; }
+    .tool-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px -8px rgba(0,0,0,0.12), 0 8px 16px -8px rgba(0,0,0,0.08); }
+    .dark .tool-card:hover { box-shadow: 0 16px 32px -8px rgba(0,0,0,0.35), 0 8px 16px -8px rgba(0,0,0,0.2); }
+    .fade-in-up { animation: fadeInUp 0.4s ease forwards; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes modalFadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    .modal-content { animation: modalFadeIn 0.3s ease-out; }
+  </style>
+</head>
+<body class="min-h-screen bg-white dark:bg-slate-900 text-gray-800 dark:text-gray-200 transition-colors flex flex-col items-center pt-24 md:pt-36 pb-20">
+  <button id="darkModeToggle" type="button" class="fixed top-4 right-4 md:top-6 md:right-6 z-50 p-3 rounded-full bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 shadow-lg transition-all" aria-label="다크모드">
+    <svg id="sunIcon" class="w-6 h-6 text-yellow-500 hidden dark:block" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"></path></svg>
+    <svg id="moonIcon" class="w-6 h-6 text-gray-700 dark:hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+  </button>
+
+  <h1 class="text-3xl md:text-4xl font-bold mb-10 md:mb-14 text-gray-800 dark:text-white tracking-tight px-4 text-center">AI Tool Finder</h1>
+
+  <div class="w-full max-w-[600px] px-5 md:px-6">
+    <input type="text" id="searchInput" placeholder="어떤 AI 툴을 찾으시나요? (입력 후 Enter)" class="w-full py-3.5 px-5 rounded-2xl border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-gray-200 dark:focus:ring-gray-600 focus:border-transparent transition-all text-base placeholder-gray-400" autocomplete="off" />
+
+    <!-- 트렌딩 태그 -->
+    <div id="trendingTags" class="flex flex-wrap justify-center gap-2 mt-4"></div>
+
+    <!-- 스마트 필터 칩: 검색 시에만 표시 -->
+    <div id="smartFilterWrap" class="mt-8 mb-4 hidden">
+      <div id="smartFilterChips" class="flex flex-wrap gap-2"></div>
+    </div>
+
+    <!-- 결과 개수 + 정렬 -->
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4 min-h-[2rem]">
+      <span id="resultCount" class="text-sm text-gray-500 dark:text-gray-400"></span>
+      <select id="sortSelect" class="px-3 py-2 rounded-xl text-sm bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-200 dark:focus:ring-gray-600 transition-all">
+        <option value="views_desc">인기순 (조회수)</option>
+        <option value="name_asc">이름순 (A-Z)</option>
+        <option value="latest">최신 등록순</option>
+        <option value="favorites_only">즐겨찾기만 보기</option>
+      </select>
+    </div>
+
+    <div id="resultList" class="grid grid-cols-1 gap-4"></div>
+  </div>
+
+  <div id="modalOverlay" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 z-50 hidden items-center justify-center p-4" onclick="if(event.target===this)closeModal()">
+    <div id="modalContent" class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full p-4 md:p-6 modal-content" onclick="event.stopPropagation()">
+      <div class="flex gap-4 items-start mb-4">
+        <div id="modalImageWrap" class="flex-shrink-0 w-16 h-16 rounded-xl bg-gray-200 dark:bg-gray-700 overflow-hidden flex items-center justify-center text-gray-500 dark:text-gray-400 text-2xl font-bold"></div>
+        <div class="flex-1 min-w-0 flex justify-between items-start gap-2">
+          <h2 id="modalTitle" class="text-xl md:text-2xl font-bold text-gray-900 dark:text-white"></h2>
+        <button type="button" onclick="closeModal()" class="text-gray-400 dark:text-gray-300 hover:text-gray-600 dark:hover:text-white transition-colors flex-shrink-0">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+        </div>
+      </div>
+      <p id="modalDesc" class="text-gray-600 dark:text-gray-300 mb-4 leading-relaxed text-sm md:text-base"></p>
+      <div id="modalTags" class="flex flex-wrap gap-2 mb-6"></div>
+      <a id="modalLink" href="#" target="_blank" rel="noopener" class="block w-full text-center bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white font-medium py-3 px-6 rounded-lg transition-colors">공식 사이트 방문하기 →</a>
+    </div>
+  </div>
+
+  <script src="aiData.js"></script>
+  <script>
+    (function() {
+      window.aiToolsLoaded = Promise.resolve();
+      try {
+        var raw = localStorage.getItem('ai_tools_data');
+        if (raw) {
+          var data = JSON.parse(raw);
+          if (Array.isArray(data) && data.length > 0) {
+            window.aiTools = data;
+            return;
+          }
+        }
+      } catch (e) {}
+      if (typeof window.aiTools === 'undefined') window.aiTools = [];
+    })();
+  </script>
+  <script>
+    var VIEWS_STORAGE_KEY = 'ai_tool_views';
+    var FAVORITES_STORAGE_KEY = 'ai_tool_favorites';
+
+    function getToolViews() {
+      try {
+        var raw = localStorage.getItem(VIEWS_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function recordToolView(toolId) {
+      if (!toolId) return;
+      var views = getToolViews();
+      views[toolId] = (views[toolId] || 0) + 1;
+      try {
+        localStorage.setItem(VIEWS_STORAGE_KEY, JSON.stringify(views));
+      } catch (e) {}
+    }
+
+    function getTopViewedToolIds(limit) {
+      var views = getToolViews();
+      var ids = Object.keys(views);
+      if (ids.length === 0) return [];
+      return ids.sort(function(a, b) { return (views[b] || 0) - (views[a] || 0); }).slice(0, limit);
+    }
+
+    function getTopTrendingTagsFromViews() {
+      var topIds = getTopViewedToolIds(15);
+      if (topIds.length === 0) return null;
+      var tagCount = {};
+      topIds.forEach(function(id) {
+        var tool = aiTools.find(function(t) { return t.id === id; });
+        if (tool && tool.tags) {
+          tool.tags.forEach(function(tag) {
+            if (tag && tag !== '추천') tagCount[tag] = (tagCount[tag] || 0) + 1;
+          });
+        }
+      });
+      return Object.keys(tagCount)
+        .sort(function(a, b) { return (tagCount[b] || 0) - (tagCount[a] || 0); })
+        .slice(0, 5);
+    }
+
+    function getFavorites() {
+      try {
+        var raw = localStorage.getItem(FAVORITES_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function toggleFavorite(toolId) {
+      if (!toolId) return;
+      var list = getFavorites();
+      var idx = list.indexOf(toolId);
+      if (idx === -1) list.push(toolId);
+      else list.splice(idx, 1);
+      try {
+        localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(list));
+      } catch (e) {}
+    }
+
+    function isFavorite(toolId) {
+      return getFavorites().indexOf(toolId) !== -1;
+    }
+
+    /** 상태 */
+    var state = {
+      selectedTags: [],
+      currentSort: 'views_desc'
+    };
+
+    /** 부분 일치: 검색어가 name / tags / searchKeywords 중 하나에만 포함돼도 true */
+    function toolMatchesPartial(tool, q) {
+      if (!q) return true;
+      var lower = q.toLowerCase();
+      if ((tool.name || '').toLowerCase().indexOf(lower) !== -1) return true;
+      if ((tool.tags || []).some(function(t) { return (t || '').toLowerCase().indexOf(lower) !== -1; })) return true;
+      if ((tool.searchKeywords || []).some(function(k) { return String(k).toLowerCase().indexOf(lower) !== -1; })) return true;
+      return false;
+    }
+
+    /** 위치 기반 정렬용: 검색어가 가장 앞에 나오는 indexOf 값 (없으면 Infinity) */
+    function getBestIndex(tool, q) {
+      if (!q) return Infinity;
+      var lower = q.toLowerCase();
+      var best = Infinity;
+      var n = (tool.name || '').toLowerCase().indexOf(lower);
+      if (n !== -1 && n < best) best = n;
+      (tool.tags || []).forEach(function(t) {
+        var i = (t || '').toLowerCase().indexOf(lower);
+        if (i !== -1 && i < best) best = i;
+      });
+      (tool.searchKeywords || []).forEach(function(k) {
+        var i = String(k).toLowerCase().indexOf(lower);
+        if (i !== -1 && i < best) best = i;
+      });
+      return best;
+    }
+
+    function setState(update) {
+      if (update.selectedTags !== undefined) state.selectedTags = update.selectedTags;
+      if (update.currentSort !== undefined) state.currentSort = update.currentSort;
+      syncUI();
+    }
+    function syncUI() {
+      applyFilterAndSort();
+    }
+
+    /** 검색어만 적용한 결과 (스마트 칩용) - 부분 일치 */
+    function getSearchOnlyTools() {
+      var input = document.getElementById('searchInput').value.trim();
+      if (!input) return [];
+      return aiTools.filter(function(tool) { return toolMatchesPartial(tool, input); });
+    }
+    /** 툴 목록에서 태그만 추출 (중복 제거, 추천 제외) */
+    function getTagsFromTools(tools) {
+      var set = {};
+      tools.forEach(function(tool) {
+        (tool.tags || []).forEach(function(tag) {
+          if (tag && tag !== '추천') set[tag] = true;
+        });
+      });
+      return Object.keys(set).sort(function(a, b) { return a.localeCompare(b, 'ko'); });
+    }
+
+    /** 전체 aiTools에서 가장 많이 등장하는 태그 Top 6 (추천 제외) */
+    function getTopTrendingTags() {
+      var count = {};
+      aiTools.forEach(function(tool) {
+        (tool.tags || []).forEach(function(tag) {
+          if (tag && tag !== '추천') count[tag] = (count[tag] || 0) + 1;
+        });
+      });
+      return Object.keys(count)
+        .sort(function(a, b) { return (count[b] || 0) - (count[a] || 0); })
+        .slice(0, 6);
+    }
+
+    function renderTrendingTags() {
+      var container = document.getElementById('trendingTags');
+      if (!container) return;
+      var tags = getTopTrendingTagsFromViews();
+      if (!tags || tags.length === 0) tags = getTopTrendingTags();
+      container.innerHTML = '';
+      tags.forEach(function(tag) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'trending-tag text-xs text-gray-500 dark:text-gray-500 hover:text-gray-800 dark:hover:text-gray-300 transition-colors';
+        btn.textContent = '#' + tag;
+        btn.onclick = function() { searchByTag(tag); };
+        container.appendChild(btn);
+      });
+    }
+
+    function highlightText(text, query) {
+      if (!query || String(query).trim() === '') return text;
+      var regex = new RegExp('(' + String(query).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+      return String(text).replace(regex, '<span class="text-blue-600 dark:text-blue-400 font-bold">$1</span>');
+    }
+    /** 정규화된 키워드 여러 개를 한 번에 하이라이트 (검색 정확도용) */
+    function highlightKeywords(text, keywords) {
+      if (!text) return '';
+      if (!keywords || keywords.length === 0) return String(text);
+      var escaped = keywords.filter(function(k) { return k && String(k).trim(); }).map(function(k) { return String(k).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); });
+      if (escaped.length === 0) return String(text);
+      var regex = new RegExp('(' + escaped.join('|') + ')', 'gi');
+      return String(text).replace(regex, '<span class="text-blue-600 dark:text-blue-400 font-bold">$1</span>');
+    }
+
+    /** AND 조건: 선택된 모든 태그를 동시에 만족하는 툴만 */
+    function toolMatchesSelectedTags(tool) {
+      if (state.selectedTags.length === 0) return true;
+      var tags = tool.tags || [];
+      return state.selectedTags.every(function(t) { return tags.indexOf(t) !== -1; });
+    }
+
+    /** 검색: name, desc, tags, keywords, searchKeywords 포함 + 부분 일치 */
+    function toolMatchesSearch(tool, query) {
+      if (!query) return true;
+      var q = query.toLowerCase();
+      if (tool.name && tool.name.toLowerCase().indexOf(q) !== -1) return true;
+      if (tool.desc && tool.desc.toLowerCase().indexOf(q) !== -1) return true;
+      if (tool.tags && tool.tags.some(function(t) { return t.toLowerCase().indexOf(q) !== -1; })) return true;
+      if (tool.keywords && tool.keywords.some(function(k) { return k.toLowerCase().indexOf(q) !== -1; })) return true;
+      if (tool.searchKeywords && tool.searchKeywords.some(function(k) { return k.toLowerCase().indexOf(q) !== -1; })) return true;
+      return false;
+    }
+
+    function getFilteredAndSortedTools() {
+      var input = document.getElementById('searchInput').value.trim();
+      var list = input
+        ? aiTools.filter(function(tool) { return toolMatchesPartial(tool, input); })
+        : aiTools.slice();
+      list = list.filter(toolMatchesSelectedTags);
+      if (state.currentSort === 'favorites_only') {
+        var favIds = getFavorites();
+        list = list.filter(function(tool) { return tool.id && favIds.indexOf(tool.id) !== -1; });
+      }
+      var views = getToolViews();
+      list = list.slice().sort(function(a, b) {
+        if (input) {
+          var ia = getBestIndex(a, input), ib = getBestIndex(b, input);
+          if (ia !== ib) return ia - ib;
+        }
+        if (state.currentSort === 'name_asc') {
+          return a.name.localeCompare(b.name, 'ko');
+        }
+        if (state.currentSort === 'latest') {
+          var idxA = aiTools.findIndex(function(t) { return t.id === a.id; });
+          var idxB = aiTools.findIndex(function(t) { return t.id === b.id; });
+          if (idxA !== -1 && idxB !== -1 && idxB !== idxA) return idxB - idxA;
+          return a.name.localeCompare(b.name, 'ko');
+        }
+        var va = views[a.id] || 0, vb = views[b.id] || 0;
+        if (vb !== va) return vb - va;
+        return a.name.localeCompare(b.name, 'ko');
+      });
+      return list;
+    }
+
+    /** 스마트 필터 칩: 검색 결과 내 태그만 표시, 클릭 시 AND 필터 */
+    function renderSmartFilterChips(tags) {
+      var wrap = document.getElementById('smartFilterWrap');
+      var container = document.getElementById('smartFilterChips');
+      if (!wrap || !container) return;
+      if (!tags || tags.length === 0) {
+        wrap.classList.add('hidden');
+        container.innerHTML = '';
+        return;
+      }
+      wrap.classList.remove('hidden');
+      container.innerHTML = '';
+      tags.forEach(function(tag) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.dataset.tag = tag;
+        var active = state.selectedTags.indexOf(tag) !== -1;
+        btn.className = 'smart-chip px-3 py-1.5 rounded-full text-xs font-medium transition-colors ' +
+          (active ? 'bg-gray-800 dark:bg-gray-200 text-white dark:text-gray-900' : 'bg-gray-100 dark:bg-gray-700/60 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600');
+        btn.textContent = tag;
+        container.appendChild(btn);
+      });
+    }
+
+    function onSmartChipClick(e) {
+      var btn = e.target.closest('.smart-chip');
+      if (!btn || !btn.dataset.tag) return;
+      var tag = btn.dataset.tag;
+      var idx = state.selectedTags.indexOf(tag);
+      var next = state.selectedTags.slice();
+      if (idx === -1) next.push(tag);
+      else next.splice(idx, 1);
+      setState({ selectedTags: next });
+    }
+
+    function setSort(value) {
+      state.currentSort = value;
+      document.getElementById('sortSelect').value = value;
+      applyFilterAndSort();
+    }
+
+    function applyFilterAndSort() {
+      var searchInput = document.getElementById('searchInput');
+      var query = searchInput.value.trim();
+      var wrap = document.getElementById('smartFilterWrap');
+
+      if (!query) {
+        state.selectedTags = [];
+        if (wrap) wrap.classList.add('hidden');
+        document.getElementById('smartFilterChips').innerHTML = '';
+      } else {
+        var searchOnlyList = getSearchOnlyTools();
+        var tags = getTagsFromTools(searchOnlyList);
+        renderSmartFilterChips(tags);
+      }
+
+      var resultList = document.getElementById('resultList');
+      var resultCount = document.getElementById('resultCount');
+      var filtered = getFilteredAndSortedTools();
+      resultList.innerHTML = '';
+      if (filtered.length === 0) {
+        resultCount.textContent = '';
+        if (state.currentSort === 'favorites_only') {
+          var emptyFavHtml = '<div class="text-center mt-10 card-enter card-enter-active"><p class="text-gray-500 dark:text-gray-400 mb-2">즐겨찾기한 툴이 없어요</p><p class="text-xs text-gray-400 dark:text-gray-500 mb-4">카드의 별을 눌러 찜해 보세요</p><button type="button" id="favoritesOnlyOffBtn" class="px-4 py-2 rounded-xl text-sm font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors">전체 툴 보기</button></div>';
+          resultList.innerHTML = emptyFavHtml;
+          setTimeout(function() {
+            var offBtn = document.getElementById('favoritesOnlyOffBtn');
+            if (offBtn) offBtn.onclick = function() { setSort('views_desc'); };
+          }, 0);
+        } else {
+          var suggestedTags = getTopTrendingTagsFromViews();
+          if (!suggestedTags || suggestedTags.length === 0) suggestedTags = getTopTrendingTags();
+          var emptyHtml = '<div class="text-center mt-10 card-enter card-enter-active"><p class="text-gray-500 dark:text-gray-400 mb-2">찾으시는 툴이 아직 없네요!</p><p class="text-xs text-gray-400 dark:text-gray-500 mb-4">아래 태그로 검색해 보세요</p><div id="emptyStateTags" class="flex flex-wrap justify-center gap-2"></div></div>';
+          resultList.innerHTML = emptyHtml;
+          var emptyWrap = document.getElementById('emptyStateTags');
+          if (emptyWrap && suggestedTags.length) {
+            suggestedTags.forEach(function(tag) {
+              var btn = document.createElement('button');
+              btn.type = 'button';
+              btn.className = 'px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700/60 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors';
+              btn.textContent = '#' + tag;
+              btn.onclick = function() { searchByTag(tag); };
+              emptyWrap.appendChild(btn);
+            });
+          }
+        }
+        return;
+      }
+      resultCount.textContent = '총 ' + filtered.length + '개의 툴을 찾았습니다';
+      resultCount.classList.add('fade-in-up');
+      renderCards(filtered);
+    }
+
+    function getToolImageUrl(tool) {
+      var manual = (tool.image || '').trim();
+      if (manual) return manual;
+      var raw = tool.url || tool.link || '';
+      if (!raw) return '';
+      try {
+        var u = new URL(raw);
+        var domain = u.hostname.replace(/^www\./, '');
+        return domain ? 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=128' : '';
+      } catch (e) { return ''; }
+    }
+
+    function renderCards(tools) {
+      const resultList = document.getElementById('resultList');
+      var searchInput = document.getElementById('searchInput').value.trim();
+      var keywords = searchInput ? [searchInput] : [];
+      var topViewedIds = getTopViewedToolIds(3);
+      tools.forEach(function(tool, index) {
+        var highlightedName = highlightKeywords(tool.name, keywords);
+        var highlightedDesc = highlightKeywords(tool.desc, keywords);
+        var tagsHtml = tool.tags.map(function(tag) { return '<span class="text-[10px] text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-700 px-2 py-0.5 rounded-md">#' + highlightKeywords(tag, keywords) + '</span>'; }).join('');
+        var isPopular = tool.id && topViewedIds.indexOf(tool.id) !== -1;
+        var badgeHtml = isPopular ? '<span class="text-xs font-medium px-2 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 rounded-md">🔥 인기</span>' : '';
+        var fav = tool.id && isFavorite(tool.id);
+        var starClass = fav ? 'text-amber-400' : 'text-gray-300 dark:text-gray-500 hover:text-amber-400';
+        var starFill = fav ? 'currentColor' : 'none';
+        var starBtn = '<button type="button" class="card-fav shrink-0 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" data-tool-id="' + (tool.id || '') + '" aria-label="즐겨찾기"><svg class="w-5 h-5 ' + starClass + '" fill="' + starFill + '" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path></svg></button>';
+        var imgUrl = getToolImageUrl(tool);
+        var firstLetter = tool.name ? tool.name.charAt(0) : '?';
+        var imgHtml = imgUrl
+          ? '<img src="' + imgUrl.replace(/"/g, '&quot;').replace(/'/g, '&#39;') + '" alt="" class="w-14 h-14 rounded-xl object-cover bg-gray-100 dark:bg-gray-700 flex-shrink-0" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';" /><div class="w-14 h-14 rounded-xl bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-400 dark:text-gray-500 text-xl font-bold flex-shrink-0" style="display:none">' + firstLetter + '</div>'
+          : '<div class="w-14 h-14 rounded-xl bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-400 dark:text-gray-500 text-xl font-bold flex-shrink-0">' + firstLetter + '</div>';
+        var card = '<div onclick="openModalByName(\'' + tool.name.replace(/'/g, "\\'") + '\')" class="tool-card group p-4 md:p-5 border border-gray-100 dark:border-gray-700 rounded-2xl hover:border-blue-400 dark:hover:border-blue-500 cursor-pointer bg-white dark:bg-gray-800 card-enter card-enter-active" style="animation-delay:' + (index * 0.1) + 's"><div class="flex gap-3 mb-2"><div class="flex-shrink-0">' + imgHtml + '</div><div class="flex-1 min-w-0"><div class="flex justify-between items-start gap-2"><div class="flex items-center gap-2 flex-wrap"><h3 class="font-bold text-gray-800 dark:text-white text-lg md:text-xl group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">' + highlightedName + '</h3>' + badgeHtml + '</div><div class="flex items-center gap-1 shrink-0"><span class="text-xs font-medium px-2 py-1 bg-blue-50 dark:bg-blue-900 text-blue-500 dark:text-blue-300 rounded-lg">상세보기 ↗</span>' + starBtn + '</div></div></div></div><p class="text-gray-500 dark:text-gray-300 text-sm leading-relaxed mb-3">' + highlightedDesc + '</p><div class="flex flex-wrap gap-2">' + tagsHtml + '</div></div>';
+        resultList.innerHTML += card;
+      });
+    }
+
+    var SEARCH_LOADING_HTML = '<div class="col-span-full flex flex-col items-center justify-center py-16 text-gray-500 dark:text-gray-400"><div class="w-10 h-10 border-2 border-gray-300 dark:border-gray-600 border-t-blue-500 rounded-full animate-spin mb-3"></div><p class="text-sm">검색 중...</p></div>';
+
+    function runSearchWithLoading() {
+      var resultList = document.getElementById('resultList');
+      var resultCount = document.getElementById('resultCount');
+      resultCount.textContent = '';
+      resultList.innerHTML = SEARCH_LOADING_HTML;
+      resultList.classList.remove('grid');
+      resultList.classList.add('flex', 'justify-center');
+      setTimeout(function() {
+        resultList.classList.remove('flex', 'justify-center');
+        resultList.classList.add('grid');
+        applyFilterAndSort();
+      }, 0);
+    }
+
+    function handleSearchInput() {
+      state.selectedTags = [];
+      applyFilterAndSort();
+    }
+
+    function searchByTag(tag) {
+      var searchInput = document.getElementById('searchInput');
+      state.selectedTags = [];
+      if (tag === '전체') searchInput.value = '';
+      else searchInput.value = tag;
+      runSearchWithLoading();
+    }
+
+    var currentModalToolId = null;
+
+    function openModalByName(toolName) {
+      var tool = aiTools.find(function(t) { return t.name === toolName; });
+      if (!tool) return;
+      currentModalToolId = tool.id || null;
+      document.getElementById('modalTitle').textContent = tool.name;
+      document.getElementById('modalDesc').textContent = tool.desc;
+      document.getElementById('modalLink').href = tool.url;
+      var imgUrl = getToolImageUrl(tool);
+      var wrap = document.getElementById('modalImageWrap');
+      wrap.innerHTML = '';
+      if (imgUrl) {
+        var img = document.createElement('img');
+        img.src = imgUrl;
+        img.alt = tool.name;
+        img.className = 'w-full h-full object-cover';
+        img.onerror = function() {
+          wrap.innerHTML = '<span class="text-2xl font-bold">' + (tool.name ? tool.name.charAt(0) : '?') + '</span>';
+        };
+        wrap.appendChild(img);
+      } else {
+        wrap.innerHTML = '<span class="text-2xl font-bold">' + (tool.name ? tool.name.charAt(0) : '?') + '</span>';
+      }
+      var modalTags = document.getElementById('modalTags');
+      modalTags.innerHTML = '';
+      tool.tags.forEach(function(tag) {
+        var span = document.createElement('span');
+        span.className = 'px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm rounded-full';
+        span.textContent = '#' + tag;
+        modalTags.appendChild(span);
+      });
+      document.getElementById('modalOverlay').classList.remove('hidden');
+      document.getElementById('modalOverlay').classList.add('flex');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+      document.getElementById('modalOverlay').classList.add('hidden');
+      document.getElementById('modalOverlay').classList.remove('flex');
+      document.body.style.overflow = '';
+      applyFilterAndSort();
+    }
+
+    document.getElementById('resultList').addEventListener('click', function(e) {
+      var btn = e.target.closest('.card-fav');
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      var id = btn.getAttribute('data-tool-id');
+      if (id) {
+        toggleFavorite(id);
+        applyFilterAndSort();
+      }
+    }, true);
+
+    document.getElementById('searchInput').onkeydown = function(e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        state.selectedTags = [];
+        runSearchWithLoading();
+      }
+    };
+    document.getElementById('sortSelect').onchange = function() { setSort(this.value); };
+    document.getElementById('smartFilterChips').addEventListener('click', onSmartChipClick);
+    document.getElementById('modalLink').addEventListener('click', function() {
+      if (currentModalToolId) {
+        recordToolView(currentModalToolId);
+        renderTrendingTags();
+      }
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    function toggleDarkMode() {
+      document.documentElement.classList.toggle('dark');
+      localStorage.setItem('darkMode', document.documentElement.classList.contains('dark') ? 'enabled' : 'disabled');
+    }
+    document.getElementById('darkModeToggle').onclick = toggleDarkMode;
+
+    document.addEventListener('DOMContentLoaded', function() {
+      if (localStorage.getItem('darkMode') === 'enabled') document.documentElement.classList.add('dark');
+      document.getElementById('sortSelect').value = state.currentSort;
+      (window.aiToolsLoaded || Promise.resolve()).then(function() {
+        renderTrendingTags();
+        applyFilterAndSort();
+      });
+    });
+  </script>
+</body>
+</html>
