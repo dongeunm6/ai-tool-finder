@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>관리자 - AI Tool Finder</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; }
+    .table-wrap { overflow-x: auto; }
+    .table-wrap table { min-width: 900px; }
+  </style>
+</head>
+<body class="min-h-screen bg-gray-50 text-gray-800">
+  <div class="max-w-7xl mx-auto px-4 py-8">
+    <header class="mb-8 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">AI 도구 관리자</h1>
+        <p class="text-sm text-gray-500 mt-1">데이터 추가·수정·삭제 후 자동으로 메인 페이지에 반영됩니다.</p>
+      </div>
+      <a href="index.html" class="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50">메인으로 돌아가기</a>
+    </header>
+
+    <!-- 요약 카드 -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+      <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <p class="text-sm text-gray-500 mb-1">총 도구 수</p>
+        <p id="summaryCount" class="text-2xl font-bold text-gray-900">0</p>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <p class="text-sm text-gray-500 mb-1">누적 조회수 합계</p>
+        <p id="summaryViews" class="text-2xl font-bold text-gray-900">0</p>
+      </div>
+    </div>
+
+    <!-- 새 도구 등록 폼 -->
+    <div class="bg-white rounded-xl border border-gray-200 p-5 mb-6 shadow-sm">
+      <h2 class="text-lg font-semibold text-gray-900 mb-4">새 AI 툴 등록</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">ID (영문·하이픈)</label>
+          <input type="text" id="newId" placeholder="예: my-tool" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">이름</label>
+          <input type="text" id="newName" placeholder="예: My AI Tool" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-xs font-medium text-gray-500 mb-1">설명</label>
+          <input type="text" id="newDesc" placeholder="한 줄 설명" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">URL</label>
+          <input type="url" id="newUrl" placeholder="https://..." class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">대표 이미지 URL</label>
+          <input type="url" id="newImage" placeholder="https://... (선택)" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">태그 (쉼표 구분)</label>
+          <input type="text" id="newTags" placeholder="코딩, 무료, 추천" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-xs font-medium text-gray-500 mb-1">검색 키워드 (쉼표 구분)</label>
+          <input type="text" id="newSearchKeywords" placeholder="그림, 번역, 요약" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+        <div class="md:col-span-2 flex items-center gap-2">
+          <input type="checkbox" id="newVerified" class="rounded border-gray-300" />
+          <label for="newVerified" class="text-sm text-gray-600">검증됨 (isVerified)</label>
+        </div>
+      </div>
+      <button type="button" id="btnAdd" class="mt-4 px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded-lg hover:bg-gray-800">등록</button>
+    </div>
+
+    <!-- 일괄 가져오기 / 내보내기 -->
+    <div class="bg-white rounded-xl border border-gray-200 p-5 mb-6 shadow-sm">
+      <h2 class="text-lg font-semibold text-gray-900 mb-2">일괄 가져오기 · 내보내기</h2>
+      <p class="text-sm text-gray-500 mb-4">JSON 배열을 붙여넣거나 파일을 선택해 한 번에 툴을 추가할 수 있습니다. 같은 ID는 건너뜁니다.</p>
+      <div class="flex flex-wrap gap-3 mb-4">
+        <button type="button" id="btnExport" class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50">📥 현재 데이터 내보내기 (JSON)</button>
+        <button type="button" id="btnResetToDefault" class="px-4 py-2 border border-amber-300 bg-amber-50 text-amber-800 rounded-lg text-sm font-medium hover:bg-amber-100">🔄 기본 데이터로 초기화 (aiData.js)</button>
+        <label class="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 cursor-pointer">
+          📂 JSON 파일에서 가져오기
+          <input type="file" id="importFile" accept=".json,application/json" class="hidden" />
+        </label>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">JSON 배열 붙여넣기</label>
+        <textarea id="importJson" rows="6" placeholder='[{"id":"new-tool","name":"툴 이름","desc":"설명","url":"https://...","tags":["태그1"],"searchKeywords":["키워드"]}, ...]' class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"></textarea>
+        <button type="button" id="btnImport" class="mt-2 px-4 py-2 bg-gray-800 text-white text-sm font-medium rounded-lg hover:bg-gray-700">가져오기 (기존 ID 건너뜀)</button>
+      </div>
+    </div>
+
+    <!-- 도구 목록 -->
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+      <div class="p-4 border-b border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-900">도구 목록</h2>
+      </div>
+      <div class="table-wrap">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th class="text-left py-3 px-4 font-medium text-gray-600 w-16">이미지</th>
+              <th class="text-left py-3 px-4 font-medium text-gray-600">ID</th>
+              <th class="text-left py-3 px-4 font-medium text-gray-600">이름</th>
+              <th class="text-left py-3 px-4 font-medium text-gray-600">설명</th>
+              <th class="text-left py-3 px-4 font-medium text-gray-600">URL</th>
+              <th class="text-left py-3 px-4 font-medium text-gray-600">태그</th>
+              <th class="text-left py-3 px-4 font-medium text-gray-600">검증</th>
+              <th class="text-right py-3 px-4 font-medium text-gray-600 w-28">작업</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 수정 모달 -->
+  <div id="editOverlay" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center p-4">
+    <div id="editModal" class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+      <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+        <h3 class="font-semibold text-gray-900">도구 수정</h3>
+        <button type="button" id="editClose" class="text-gray-400 hover:text-gray-600 p-1">✕</button>
+      </div>
+      <div class="p-4 space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">ID</label>
+          <input type="text" id="editId" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" readonly />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">이름</label>
+          <input type="text" id="editName" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">설명</label>
+          <input type="text" id="editDesc" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">URL</label>
+          <input type="url" id="editUrl" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">대표 이미지 URL</label>
+          <input type="url" id="editImage" placeholder="https://... (선택)" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">태그 (쉼표 구분)</label>
+          <input type="text" id="editTags" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">검색 키워드 (쉼표 구분)</label>
+          <input type="text" id="editSearchKeywords" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+        </div>
+        <div class="flex items-center gap-2">
+          <input type="checkbox" id="editVerified" class="rounded border-gray-300" />
+          <label for="editVerified" class="text-sm text-gray-600">검증됨</label>
+        </div>
+      </div>
+      <div class="p-4 border-t border-gray-200 flex justify-end gap-2">
+        <button type="button" id="editCancel" class="px-4 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50">취소</button>
+        <button type="button" id="editSave" class="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="aiData.js"></script>
+  <script>
+    var AI_TOOLS_STORAGE_KEY = 'ai_tools_data';
+    var VIEWS_STORAGE_KEY = 'ai_tool_views';
+    var currentEditIndex = -1;
+
+    function getStoredTools() {
+      try {
+        var raw = localStorage.getItem(AI_TOOLS_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    function getViews() {
+      try {
+        var raw = localStorage.getItem(VIEWS_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function getTools() {
+      var stored = getStoredTools();
+      var list = stored ? stored : (typeof aiTools !== 'undefined' ? aiTools.slice() : []);
+      return list.map(function(t) {
+        return {
+          id: t.id || '',
+          name: t.name || '',
+          desc: t.desc || '',
+          link: t.link || t.url || '',
+          url: t.url || t.link || '',
+          image: (t.image || '').trim(),
+          tags: Array.isArray(t.tags) ? t.tags : [],
+          keywords: Array.isArray(t.keywords) ? t.keywords : [],
+          searchKeywords: Array.isArray(t.searchKeywords) ? t.searchKeywords : [],
+          isVerified: !!t.isVerified
+        };
+      });
+    }
+
+    function saveTools(tools) {
+      try {
+        localStorage.setItem(AI_TOOLS_STORAGE_KEY, JSON.stringify(tools));
+      } catch (e) {
+        alert('저장 실패: ' + (e.message || e));
+      }
+    }
+
+    function strToArr(s) {
+      if (!s || typeof s !== 'string') return [];
+      return s.split(',').map(function(x) { return x.trim(); }).filter(Boolean);
+    }
+
+    function arrToStr(arr) {
+      return Array.isArray(arr) ? arr.join(', ') : '';
+    }
+
+    function getToolImageUrl(tool) {
+      var manual = (tool.image || '').trim();
+      if (manual) return manual;
+      var raw = tool.url || tool.link || '';
+      if (!raw) return '';
+      try {
+        var u = new URL(raw);
+        var domain = u.hostname.replace(/^www\./, '');
+        return domain ? 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=128' : '';
+      } catch (e) { return ''; }
+    }
+
+    function updateSummary() {
+      var tools = getTools();
+      var views = getViews();
+      var totalViews = 0;
+      tools.forEach(function(t) {
+        totalViews += (views[t.id] || 0);
+      });
+      document.getElementById('summaryCount').textContent = tools.length;
+      document.getElementById('summaryViews').textContent = totalViews.toLocaleString();
+    }
+
+    function renderTable() {
+      var tools = getTools();
+      var tbody = document.getElementById('tableBody');
+      tbody.innerHTML = '';
+      tools.forEach(function(tool, index) {
+        var imgSrc = getToolImageUrl(tool);
+        var imgCell = imgSrc
+          ? '<img src="' + imgSrc.replace(/"/g, '&quot;') + '" alt="" class="w-10 h-10 rounded-lg object-cover bg-gray-100" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'block\';" /><span class="text-gray-400 text-xs" style="display:none">-</span>'
+          : '<span class="text-gray-400 text-xs">-</span>';
+        var tr = document.createElement('tr');
+        tr.className = 'border-b border-gray-100 hover:bg-gray-50';
+        tr.innerHTML =
+          '<td class="py-3 px-4">' + imgCell + '</td>' +
+          '<td class="py-3 px-4 font-mono text-xs text-gray-600">' + (tool.id || '-') + '</td>' +
+          '<td class="py-3 px-4 font-medium text-gray-900">' + (tool.name || '-') + '</td>' +
+          '<td class="py-3 px-4 text-gray-600 max-w-[200px] truncate" title="' + (tool.desc || '').replace(/"/g, '&quot;') + '">' + (tool.desc || '-') + '</td>' +
+          '<td class="py-3 px-4 text-gray-500 max-w-[180px] truncate"><a href="' + (tool.url || '#') + '" target="_blank" rel="noopener" class="text-blue-600 hover:underline">' + (tool.url || '-') + '</a></td>' +
+          '<td class="py-3 px-4 text-gray-500 text-xs">' + (arrToStr(tool.tags) || '-') + '</td>' +
+          '<td class="py-3 px-4">' +
+            '<input type="checkbox" class="admin-verified rounded border-gray-300" data-index="' + index + '" ' + (tool.isVerified ? 'checked' : '') + ' />' +
+          '</td>' +
+          '<td class="py-3 px-4 text-right">' +
+            '<button type="button" class="admin-edit px-2 py-1 text-gray-600 hover:text-gray-900 text-xs font-medium" data-index="' + index + '">수정</button> ' +
+            '<button type="button" class="admin-delete px-2 py-1 text-red-600 hover:text-red-800 text-xs font-medium" data-index="' + index + '">삭제</button>' +
+          '</td>';
+        tbody.appendChild(tr);
+      });
+      updateSummary();
+    }
+
+    function openAddForm() {
+      document.getElementById('newId').value = '';
+      document.getElementById('newName').value = '';
+      document.getElementById('newDesc').value = '';
+      document.getElementById('newUrl').value = '';
+      document.getElementById('newTags').value = '';
+      document.getElementById('newSearchKeywords').value = '';
+      document.getElementById('newImage').value = '';
+      document.getElementById('newVerified').checked = false;
+    }
+
+    function submitAdd() {
+      var id = (document.getElementById('newId').value || '').trim().replace(/\s+/g, '-').toLowerCase();
+      var name = (document.getElementById('newName').value || '').trim();
+      var desc = (document.getElementById('newDesc').value || '').trim();
+      var url = (document.getElementById('newUrl').value || '').trim();
+      var image = (document.getElementById('newImage').value || '').trim();
+      var tags = strToArr(document.getElementById('newTags').value);
+      var searchKeywords = strToArr(document.getElementById('newSearchKeywords').value);
+      if (!id || !name) {
+        alert('ID와 이름은 필수입니다.');
+        return;
+      }
+      var tools = getTools();
+      if (tools.some(function(t) { return t.id === id; })) {
+        alert('이미 존재하는 ID입니다.');
+        return;
+      }
+      tools.push({
+        id: id,
+        name: name,
+        desc: desc,
+        link: url,
+        url: url,
+        image: image,
+        tags: tags,
+        keywords: searchKeywords.slice(),
+        searchKeywords: searchKeywords,
+        isVerified: document.getElementById('newVerified').checked
+      });
+      saveTools(tools);
+      openAddForm();
+      renderTable();
+    }
+
+    function openEditModal(index) {
+      var tools = getTools();
+      var t = tools[index];
+      if (!t) return;
+      currentEditIndex = index;
+      document.getElementById('editId').value = t.id || '';
+      document.getElementById('editName').value = t.name || '';
+      document.getElementById('editDesc').value = t.desc || '';
+      document.getElementById('editUrl').value = t.url || '';
+      document.getElementById('editImage').value = t.image || '';
+      document.getElementById('editTags').value = arrToStr(t.tags);
+      document.getElementById('editSearchKeywords').value = arrToStr(t.searchKeywords);
+      document.getElementById('editVerified').checked = !!t.isVerified;
+      document.getElementById('editOverlay').classList.remove('hidden');
+      document.getElementById('editOverlay').classList.add('flex');
+    }
+
+    function closeEditModal() {
+      currentEditIndex = -1;
+      document.getElementById('editOverlay').classList.add('hidden');
+      document.getElementById('editOverlay').classList.remove('flex');
+    }
+
+    function submitEdit() {
+      if (currentEditIndex < 0) return;
+      var tools = getTools();
+      var t = tools[currentEditIndex];
+      if (!t) return;
+      t.name = (document.getElementById('editName').value || '').trim();
+      t.desc = (document.getElementById('editDesc').value || '').trim();
+      t.url = (document.getElementById('editUrl').value || '').trim();
+      t.link = t.url;
+      t.image = (document.getElementById('editImage').value || '').trim();
+      t.tags = strToArr(document.getElementById('editTags').value);
+      t.searchKeywords = strToArr(document.getElementById('editSearchKeywords').value);
+      t.keywords = t.searchKeywords.slice();
+      t.isVerified = document.getElementById('editVerified').checked;
+      saveTools(tools);
+      closeEditModal();
+      renderTable();
+    }
+
+    function deleteTool(index) {
+      if (!confirm('이 도구를 삭제할까요?')) return;
+      var tools = getTools();
+      tools.splice(index, 1);
+      saveTools(tools);
+      renderTable();
+    }
+
+    function toggleVerified(index) {
+      var tools = getTools();
+      var t = tools[index];
+      if (t) {
+        t.isVerified = !t.isVerified;
+        saveTools(tools);
+      }
+    }
+
+    function normalizeImportedTool(item) {
+      var url = (item.url || item.link || '').trim();
+      var id = (item.id || '').trim().replace(/\s+/g, '-').toLowerCase();
+      if (!id && item.name) id = (item.name || '').trim().replace(/\s+/g, '-').replace(/[^a-z0-9가-힣-]/gi, '').toLowerCase();
+      return {
+        id: id,
+        name: (item.name || '').trim(),
+        desc: (item.desc || '').trim(),
+        link: url,
+        url: url,
+        image: (item.image || '').trim(),
+        tags: Array.isArray(item.tags) ? item.tags : (typeof item.tags === 'string' ? strToArr(item.tags) : []),
+        keywords: Array.isArray(item.keywords) ? item.keywords : (Array.isArray(item.searchKeywords) ? item.searchKeywords : []),
+        searchKeywords: Array.isArray(item.searchKeywords) ? item.searchKeywords : (Array.isArray(item.keywords) ? item.keywords : []),
+        isVerified: !!item.isVerified
+      };
+    }
+
+    function doExport() {
+      var tools = getTools();
+      var json = JSON.stringify(tools, null, 2);
+      var blob = new Blob([json], { type: 'application/json' });
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'ai-tools-data-' + new Date().toISOString().slice(0, 10) + '.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function doImportFromArray(arr) {
+      if (!Array.isArray(arr)) {
+        alert('유효한 JSON 배열이 아닙니다.');
+        return;
+      }
+      var tools = getTools();
+      var existingIds = {};
+      tools.forEach(function(t) { existingIds[t.id] = true; });
+      var added = 0;
+      var skipped = 0;
+      arr.forEach(function(item) {
+        if (!item || typeof item !== 'object') return;
+        var t = normalizeImportedTool(item);
+        if (!t.id || !t.name) return;
+        if (existingIds[t.id]) {
+          skipped++;
+          return;
+        }
+        existingIds[t.id] = true;
+        t.keywords = t.searchKeywords.slice();
+        tools.push(t);
+        added++;
+      });
+      saveTools(tools);
+      renderTable();
+      alert('가져오기 완료: ' + added + '개 추가, ' + skipped + '개 건너뜀 (중복 ID).');
+    }
+
+    function doImportFromText() {
+      var raw = (document.getElementById('importJson').value || '').trim();
+      if (!raw) {
+        alert('JSON을 붙여넣어 주세요.');
+        return;
+      }
+      try {
+        var data = JSON.parse(raw);
+        if (Array.isArray(data)) {
+          doImportFromArray(data);
+        } else if (data && Array.isArray(data.tools)) {
+          doImportFromArray(data.tools);
+        } else if (data && typeof data === 'object') {
+          doImportFromArray([data]);
+        } else {
+          alert('JSON 배열 또는 { "tools": [...] } 형식이어야 합니다.');
+        }
+      } catch (e) {
+        alert('JSON 형식이 올바르지 않습니다: ' + (e.message || e));
+      }
+    }
+
+    function doImportFromFile(file) {
+      if (!file) return;
+      var reader = new FileReader();
+      reader.onload = function() {
+        try {
+          var data = JSON.parse(reader.result);
+          if (Array.isArray(data)) {
+            doImportFromArray(data);
+          } else if (data && Array.isArray(data.tools)) {
+            doImportFromArray(data.tools);
+          } else if (data && typeof data === 'object') {
+            doImportFromArray([data]);
+          } else {
+            alert('JSON 배열 또는 { "tools": [...] } 형식이어야 합니다.');
+          }
+        } catch (e) {
+          alert('파일을 읽을 수 없습니다: ' + (e.message || e));
+        }
+      };
+      reader.readAsText(file, 'UTF-8');
+    }
+
+    function resetToDefault() {
+      if (typeof aiTools === 'undefined' || !Array.isArray(aiTools) || aiTools.length === 0) {
+        alert('aiData.js에 기본 데이터가 없습니다.');
+        return;
+      }
+      if (!confirm('저장된 데이터를 모두 지우고 aiData.js의 기본 데이터(' + aiTools.length + '개)로 덮어쓸까요?')) return;
+      var list = aiTools.map(function(t) {
+        return {
+          id: t.id || '',
+          name: t.name || '',
+          desc: t.desc || '',
+          link: t.link || t.url || '',
+          url: t.url || t.link || '',
+          image: (t.image || '').trim(),
+          tags: Array.isArray(t.tags) ? t.tags : [],
+          keywords: Array.isArray(t.keywords) ? t.keywords : [],
+          searchKeywords: Array.isArray(t.searchKeywords) ? t.searchKeywords : [],
+          isVerified: !!t.isVerified
+        };
+      });
+      saveTools(list);
+      renderTable();
+      alert('기본 데이터(' + list.length + '개)로 초기화했습니다. 메인 페이지도 동일하게 반영됩니다.');
+    }
+
+    document.getElementById('btnAdd').onclick = submitAdd;
+    document.getElementById('btnExport').onclick = doExport;
+    document.getElementById('btnResetToDefault').onclick = resetToDefault;
+    document.getElementById('btnImport').onclick = doImportFromText;
+    document.getElementById('importFile').onchange = function() {
+      var file = this.files && this.files[0];
+      if (file) {
+        doImportFromFile(file);
+        this.value = '';
+      }
+    };
+    document.getElementById('editClose').onclick = closeEditModal;
+    document.getElementById('editCancel').onclick = closeEditModal;
+    document.getElementById('editSave').onclick = submitEdit;
+
+    document.getElementById('editOverlay').onclick = function(e) {
+      if (e.target === document.getElementById('editOverlay')) closeEditModal();
+    };
+
+    document.getElementById('tableBody').addEventListener('click', function(e) {
+      var editBtn = e.target.closest('.admin-edit');
+      var delBtn = e.target.closest('.admin-delete');
+      var verifiedCb = e.target.closest('.admin-verified');
+      if (editBtn) {
+        openEditModal(parseInt(editBtn.getAttribute('data-index'), 10));
+      } else if (delBtn) {
+        deleteTool(parseInt(delBtn.getAttribute('data-index'), 10));
+      } else if (verifiedCb) {
+        e.stopPropagation();
+        toggleVerified(parseInt(verifiedCb.getAttribute('data-index'), 10));
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+      renderTable();
+      openAddForm();
+    });
+  </script>
+</body>
+</html>
